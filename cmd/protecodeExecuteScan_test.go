@@ -18,6 +18,7 @@ import (
 
 	pkgutil "github.com/GoogleContainerTools/container-diff/pkg/util"
 	"github.com/SAP/jenkins-library/pkg/protecode"
+	"github.com/SAP/jenkins-library/pkg/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -359,35 +360,54 @@ func TestExecuteProtecodeScan(t *testing.T) {
 func TestCorrectDockerConfigEnvVar(t *testing.T) {
 	t.Run("with credentials", func(t *testing.T) {
 		// init
-		testDirectory, _ := ioutil.TempDir(".", "")
-		require.DirExists(t, testDirectory)
-		defer os.RemoveAll(testDirectory)
+		utilsMock := mock.FilesMock{}
+		utilsMock.CurrentDir = "/tmp/test"
 
-		dockerConfigDir := filepath.Join(testDirectory, "myConfig")
-		os.Mkdir(dockerConfigDir, 0755)
-		require.DirExists(t, dockerConfigDir)
-
-		dockerConfigFile := filepath.Join(dockerConfigDir, "docker.json")
-		file, _ := os.Create(dockerConfigFile)
-		defer file.Close()
-		require.FileExists(t, dockerConfigFile)
+		dockerConfigFile := "myConfig/docker.json"
+		utilsMock.AddFile(dockerConfigFile, []byte("{}"))
 
 		resetValue := os.Getenv("DOCKER_CONFIG")
+		os.Setenv("DOCKER_CONFIG", "")
 		defer os.Setenv("DOCKER_CONFIG", resetValue)
+
 		// test
-		correctDockerConfigEnvVar(&protecodeExecuteScanOptions{DockerConfigJSON: dockerConfigFile})
+		err := correctDockerConfigEnvVar(&protecodeExecuteScanOptions{DockerConfigJSON: dockerConfigFile}, &utilsMock)
 		// assert
-		absolutePath, _ := filepath.Abs(dockerConfigDir)
-		assert.Equal(t, absolutePath, os.Getenv("DOCKER_CONFIG"))
+		assert.NoError(t, err)
+		assert.NotNil(t, os.Getenv("DOCKER_CONFIG"))
+	})
+	t.Run("with added credentials", func(t *testing.T) {
+		// init
+		utilsMock := mock.FilesMock{}
+		utilsMock.CurrentDir = "/tmp/test"
+
+		dockerConfigFile := "myConfig/docker.json"
+		utilsMock.AddFile(dockerConfigFile, []byte("{}"))
+
+		resetValue := os.Getenv("DOCKER_CONFIG")
+		os.Setenv("DOCKER_CONFIG", "")
+		defer os.Setenv("DOCKER_CONFIG", resetValue)
+
+		// test
+		err := correctDockerConfigEnvVar(&protecodeExecuteScanOptions{DockerConfigJSON: dockerConfigFile, DockerRegistryURL: "https://test.registry", DockerRegistryUser: "testuser", DockerRegistryPassword: "testPassword"}, &utilsMock)
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, os.Getenv("DOCKER_CONFIG"))
+		absoluteFilePath, _ := utilsMock.Abs(fmt.Sprintf("%s/%s", os.Getenv("DOCKER_CONFIG"), "config.json"))
+		content, _ := utilsMock.FileRead(absoluteFilePath)
+		assert.Contains(t, string(content), "https://test.registry")
 	})
 	t.Run("without credentials", func(t *testing.T) {
 		// init
+		utilsMock := mock.FilesMock{}
 		resetValue := os.Getenv("DOCKER_CONFIG")
+		os.Setenv("DOCKER_CONFIG", "")
 		defer os.Setenv("DOCKER_CONFIG", resetValue)
 		// test
-		correctDockerConfigEnvVar(&protecodeExecuteScanOptions{})
+		err := correctDockerConfigEnvVar(&protecodeExecuteScanOptions{}, &utilsMock)
 		// assert
-		assert.Equal(t, resetValue, os.Getenv("DOCKER_CONFIG"))
+		assert.NoError(t, err)
+		assert.NotNil(t, os.Getenv("DOCKER_CONFIG"))
 	})
 }
 

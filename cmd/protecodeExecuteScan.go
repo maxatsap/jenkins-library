@@ -52,7 +52,10 @@ func protecodeExecuteScan(config protecodeExecuteScanOptions, telemetryData *tel
 }
 
 func runProtecodeScan(config *protecodeExecuteScanOptions, influx *protecodeExecuteScanInflux, dClient piperDocker.Download) error {
-	correctDockerConfigEnvVar(config)
+	if err := correctDockerConfigEnvVar(config, StepResults.Files{}); err != nil {
+		return err
+	}
+
 	var fileName, filePath string
 	var err error
 	//create client for sending api request
@@ -423,17 +426,36 @@ var writeReportToFile = func(resp io.ReadCloser, reportFileName string) error {
 	return err
 }
 
-func correctDockerConfigEnvVar(config *protecodeExecuteScanOptions) {
-	path := config.DockerConfigJSON
-	if len(path) > 0 {
-		log.Entry().Infof("Docker credentials configuration: %v", path)
-		path, _ := filepath.Abs(path)
-		// use parent directory
-		path = filepath.Dir(path)
-		os.Setenv("DOCKER_CONFIG", path)
+func correctDockerConfigEnvVar(config *protecodeExecuteScanOptions, utils StepResults.FileUtils) error {
+	dockerConfigDir, err := utils.TempDir("", "docker")
+
+	if err != nil {
+		return errors.Wrap(err, "unable to create docker config dir")
+	}
+
+	dockerConfigFile := fmt.Sprintf("%s/%s", dockerConfigDir, "config.json")
+
+	if len(config.DockerConfigJSON) > 0 {
+		log.Entry().Infof("Docker credentials configuration: %v", config.DockerConfigJSON)
+
+		if exists, _ := utils.FileExists(config.DockerConfigJSON); exists {
+			if _, err = utils.Copy(config.DockerConfigJSON, dockerConfigFile); err != nil {
+				return errors.Wrap(err, "unable to copy docker config")
+			}
+		}
 	} else {
 		log.Entry().Info("Docker credentials configuration: NONE")
 	}
+
+	if len(config.DockerRegistryURL) > 0 && len(config.DockerRegistryUser) > 0 && len(config.DockerRegistryPassword) > 0 {
+		if _, err = piperDocker.CreateDockerConfigJSON(config.DockerRegistryURL, config.DockerRegistryUser, config.DockerRegistryPassword, dockerConfigFile, dockerConfigFile, utils); err != nil {
+			log.Entry().Warningf("failed to update Docker config.json: %v", err)
+		}
+	}
+
+	os.Setenv("DOCKER_CONFIG", dockerConfigDir)
+
+	return nil
 }
 
 func getTarName(config *protecodeExecuteScanOptions) string {
