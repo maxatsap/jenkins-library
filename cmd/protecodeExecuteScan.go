@@ -84,6 +84,10 @@ func runProtecodeScan(config *protecodeExecuteScanOptions, influx *protecodeExec
 	} else if len(config.FetchURL) > 0 {
 		// Get filename from a fetch URL
 		fileName = filepath.Base(config.FetchURL)
+		if len(config.CustomName) > 0 {
+			fileName = config.CustomName
+		}
+
 		log.Entry().Debugf("[DEBUG] ===> Filepath from fetch URL: %v", fileName)
 	}
 
@@ -134,7 +138,11 @@ func getDockerImage(dClient piperDocker.Download, config *protecodeExecuteScanOp
 	if util.IsTar(config.ScanImage) {
 		fileName = config.ScanImage
 	} else {
-		fileName = getTarName(config)
+		if len(config.CustomName) > 0 {
+			fileName = config.CustomName
+		} else {
+			fileName = getTarName(config)
+		}
 		tarFilePath := filepath.Join(cachePath, fileName)
 		tarFile, err := os.Create(tarFilePath)
 		if err != nil {
@@ -376,7 +384,7 @@ func uploadFile(config protecodeExecuteScanOptions, productID int, client protec
 
 	if len(config.FetchURL) > 0 {
 		log.Entry().Debugf("Declare fetch url %v", config.FetchURL)
-		resultData := client.DeclareFetchURL(config.CleanupMode, config.Group, config.FetchURL, version, productID, replaceBinary)
+		resultData := client.DeclareFetchURL(config.CleanupMode, config.Group, config.FetchURL, fileName, version, productID, replaceBinary)
 		productID = resultData.Result.ProductID
 	} else {
 		log.Entry().Debugf("Upload file path: %v", config.FilePath)

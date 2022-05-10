@@ -232,6 +232,13 @@ spec:
           - type: vaultSecret
             name: protecodeVaultSecretName
             default: protecode
+      - name: customName
+        type: string
+        description: Specify a custom name to upload to protecode. Ignored if filePath is defined or scanImage is a tar file.
+        scope:
+          - PARAMETERS
+          - STAGES
+          - STEPS
       - name: version
         aliases:
           - name: artifactVersion
