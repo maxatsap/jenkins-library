@@ -314,13 +314,13 @@ func TestApplicationName(t *testing.T) {
 	}
 
 	cases := []struct {
-		group    	string
-		fetchURL 	string
-		filePath 	string
-		appName  	string
-		prName   	string
+		group     string
+		fetchURL  string
+		filePath  string
+		appName   string
+		prName    string
 		productID int
-		want     	string
+		want      string
 	}{
 		{"group1", "http://local/binary.tar", "", "", "", 4711, ""},
 		{"group1", "http://local/binary.tar", "", "", "PR_4444", 4711, ""},
@@ -340,10 +340,10 @@ func TestApplicationName(t *testing.T) {
 			_ = uploadFile(utils, config, c.productID, pc, fileName, false)
 
 			// assert
-			if (len(c.fetchURL) > 0) {
+			if len(c.fetchURL) > 0 {
 				assert.Equal(t, requestURI, "/api/fetch/")
 				assert.Equal(t, passedHeaders["Url"], []string{c.fetchURL})
-				if (len(c.appName) > 0) {
+				if len(c.appName) > 0 {
 					assert.Contains(t, passedHeaders, "Name")
 					assert.Equal(t, []string{c.want}, passedHeaders["Name"])
 				} else {
