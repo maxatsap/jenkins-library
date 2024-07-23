@@ -22,26 +22,27 @@ import (
 )
 
 type kanikoExecuteOptions struct {
-	BuildOptions                     []string `json:"buildOptions,omitempty"`
-	BuildSettingsInfo                string   `json:"buildSettingsInfo,omitempty"`
-	ContainerBuildOptions            string   `json:"containerBuildOptions,omitempty"`
-	ContainerImage                   string   `json:"containerImage,omitempty"`
-	ContainerImageName               string   `json:"containerImageName,omitempty" validate:"required_if=ContainerMultiImageBuild true"`
-	ContainerImageTag                string   `json:"containerImageTag,omitempty"`
-	ContainerMultiImageBuild         bool     `json:"containerMultiImageBuild,omitempty"`
-	ContainerMultiImageBuildExcludes []string `json:"containerMultiImageBuildExcludes,omitempty"`
-	ContainerMultiImageBuildTrimDir  string   `json:"containerMultiImageBuildTrimDir,omitempty"`
-	ContainerPreparationCommand      string   `json:"containerPreparationCommand,omitempty"`
-	ContainerRegistryURL             string   `json:"containerRegistryUrl,omitempty"`
-	ContainerRegistryUser            string   `json:"containerRegistryUser,omitempty"`
-	ContainerRegistryPassword        string   `json:"containerRegistryPassword,omitempty"`
-	CustomTLSCertificateLinks        []string `json:"customTlsCertificateLinks,omitempty"`
-	DockerConfigJSON                 string   `json:"dockerConfigJSON,omitempty"`
-	DockerfilePath                   string   `json:"dockerfilePath,omitempty"`
-	TargetArchitectures              []string `json:"targetArchitectures,omitempty"`
-	ReadImageDigest                  bool     `json:"readImageDigest,omitempty"`
-	CreateBOM                        bool     `json:"createBOM,omitempty"`
-	SyftDownloadURL                  string   `json:"syftDownloadUrl,omitempty"`
+	BuildOptions                     []string                 `json:"buildOptions,omitempty"`
+	BuildSettingsInfo                string                   `json:"buildSettingsInfo,omitempty"`
+	ContainerBuildOptions            string                   `json:"containerBuildOptions,omitempty"`
+	ContainerImage                   string                   `json:"containerImage,omitempty"`
+	ContainerImageName               string                   `json:"containerImageName,omitempty" validate:"required_if=ContainerMultiImageBuild true"`
+	ContainerImageTag                string                   `json:"containerImageTag,omitempty"`
+	MultipleImages                   []map[string]interface{} `json:"multipleImages,omitempty"`
+	ContainerMultiImageBuild         bool                     `json:"containerMultiImageBuild,omitempty"`
+	ContainerMultiImageBuildExcludes []string                 `json:"containerMultiImageBuildExcludes,omitempty"`
+	ContainerMultiImageBuildTrimDir  string                   `json:"containerMultiImageBuildTrimDir,omitempty"`
+	ContainerPreparationCommand      string                   `json:"containerPreparationCommand,omitempty"`
+	ContainerRegistryURL             string                   `json:"containerRegistryUrl,omitempty"`
+	ContainerRegistryUser            string                   `json:"containerRegistryUser,omitempty"`
+	ContainerRegistryPassword        string                   `json:"containerRegistryPassword,omitempty"`
+	CustomTLSCertificateLinks        []string                 `json:"customTlsCertificateLinks,omitempty"`
+	DockerConfigJSON                 string                   `json:"dockerConfigJSON,omitempty"`
+	DockerfilePath                   string                   `json:"dockerfilePath,omitempty"`
+	TargetArchitectures              []string                 `json:"targetArchitectures,omitempty"`
+	ReadImageDigest                  bool                     `json:"readImageDigest,omitempty"`
+	CreateBOM                        bool                     `json:"createBOM,omitempty"`
+	SyftDownloadURL                  string                   `json:"syftDownloadUrl,omitempty"`
 }
 
 type kanikoExecuteCommonPipelineEnvironment struct {
@@ -140,6 +141,10 @@ func KanikoExecuteCommand() *cobra.Command {
 		Short: "Executes a [Kaniko](https://github.com/GoogleContainerTools/kaniko) build for creating a Docker container.",
 		Long: `Executes a [Kaniko](https://github.com/GoogleContainerTools/kaniko) build for creating a Docker container.
 
+### Building one container image
+
+For building one container image the step expects that one of the containerImage, containerImageName or --destination (via buildOptions) is set.
+
 ### Building multiple container images
 
 The step allows you to build multiple container images with one run.
@@ -225,7 +230,7 @@ Following final image names will be built:
 				log.RegisterHook(&sentryHook)
 			}
 
-			if len(GeneralConfig.HookConfig.SplunkConfig.Dsn) > 0 {
+			if len(GeneralConfig.HookConfig.SplunkConfig.Dsn) > 0 || len(GeneralConfig.HookConfig.SplunkConfig.ProdCriblEndpoint) > 0 {
 				splunkClient = &splunk.Splunk{}
 				logCollector = &log.CollectorHook{CorrelationID: GeneralConfig.CorrelationID}
 				log.RegisterHook(logCollector)
@@ -259,19 +264,25 @@ Following final image names will be built:
 				telemetryClient.SetData(&stepTelemetryData)
 				telemetryClient.Send()
 				if len(GeneralConfig.HookConfig.SplunkConfig.Dsn) > 0 {
+					splunkClient.Initialize(GeneralConfig.CorrelationID,
+						GeneralConfig.HookConfig.SplunkConfig.Dsn,
+						GeneralConfig.HookConfig.SplunkConfig.Token,
+						GeneralConfig.HookConfig.SplunkConfig.Index,
+						GeneralConfig.HookConfig.SplunkConfig.SendLogs)
+					splunkClient.Send(telemetryClient.GetData(), logCollector)
+				}
+				if len(GeneralConfig.HookConfig.SplunkConfig.ProdCriblEndpoint) > 0 {
+					splunkClient.Initialize(GeneralConfig.CorrelationID,
+						GeneralConfig.HookConfig.SplunkConfig.ProdCriblEndpoint,
+						GeneralConfig.HookConfig.SplunkConfig.ProdCriblToken,
+						GeneralConfig.HookConfig.SplunkConfig.ProdCriblIndex,
+						GeneralConfig.HookConfig.SplunkConfig.SendLogs)
 					splunkClient.Send(telemetryClient.GetData(), logCollector)
 				}
 			}
 			log.DeferExitHandler(handler)
 			defer handler()
-			telemetryClient.Initialize(GeneralConfig.NoTelemetry, STEP_NAME)
-			if len(GeneralConfig.HookConfig.SplunkConfig.Dsn) > 0 {
-				splunkClient.Initialize(GeneralConfig.CorrelationID,
-					GeneralConfig.HookConfig.SplunkConfig.Dsn,
-					GeneralConfig.HookConfig.SplunkConfig.Token,
-					GeneralConfig.HookConfig.SplunkConfig.Index,
-					GeneralConfig.HookConfig.SplunkConfig.SendLogs)
-			}
+			telemetryClient.Initialize(GeneralConfig.NoTelemetry, STEP_NAME, GeneralConfig.HookConfig.PendoConfig.Token)
 			kanikoExecute(stepConfig, &stepTelemetryData, &commonPipelineEnvironment)
 			stepTelemetryData.ErrorCode = "0"
 			log.Entry().Info("SUCCESS")
@@ -286,9 +297,10 @@ func addKanikoExecuteFlags(cmd *cobra.Command, stepConfig *kanikoExecuteOptions)
 	cmd.Flags().StringSliceVar(&stepConfig.BuildOptions, "buildOptions", []string{`--skip-tls-verify-pull`, `--ignore-path=/workspace`, `--ignore-path=/busybox`}, "Defines a list of build options for the [kaniko](https://github.com/GoogleContainerTools/kaniko) build.")
 	cmd.Flags().StringVar(&stepConfig.BuildSettingsInfo, "buildSettingsInfo", os.Getenv("PIPER_buildSettingsInfo"), "Build settings info is typically filled by the step automatically to create information about the build settings that were used during the mta build. This information is typically used for compliance related processes.")
 	cmd.Flags().StringVar(&stepConfig.ContainerBuildOptions, "containerBuildOptions", os.Getenv("PIPER_containerBuildOptions"), "Deprected, please use buildOptions. Defines the build options for the [kaniko](https://github.com/GoogleContainerTools/kaniko) build.")
-	cmd.Flags().StringVar(&stepConfig.ContainerImage, "containerImage", os.Getenv("PIPER_containerImage"), "Defines the full name of the Docker image to be created including registry, image name and tag like `my.docker.registry/path/myImageName:myTag`. If left empty, image will not be pushed.")
-	cmd.Flags().StringVar(&stepConfig.ContainerImageName, "containerImageName", os.Getenv("PIPER_containerImageName"), "Name of the container which will be built - will be used instead of parameter `containerImage`")
+	cmd.Flags().StringVar(&stepConfig.ContainerImage, "containerImage", os.Getenv("PIPER_containerImage"), "Defines the full name of the Docker image to be created including registry, image name and tag like `my.docker.registry/path/myImageName:myTag`. If `containerImage` is not provided, then `containerImageName` or `--destination` (via buildOptions) should be provided.")
+	cmd.Flags().StringVar(&stepConfig.ContainerImageName, "containerImageName", os.Getenv("PIPER_containerImageName"), "Name of the container which will be built - will be used instead of parameter `containerImage`. If `containerImageName` is not provided, then `containerImage` or `--destination` (via buildOptions) should be provided.")
 	cmd.Flags().StringVar(&stepConfig.ContainerImageTag, "containerImageTag", os.Getenv("PIPER_containerImageTag"), "Tag of the container which will be built - will be used instead of parameter `containerImage`")
+
 	cmd.Flags().BoolVar(&stepConfig.ContainerMultiImageBuild, "containerMultiImageBuild", false, "Defines if multiple containers should be build. Dockerfiles are used using the pattern **/Dockerfile*. Excludes can be defined via [`containerMultiImageBuildExcludes`](#containermultiimagebuildexscludes).")
 	cmd.Flags().StringSliceVar(&stepConfig.ContainerMultiImageBuildExcludes, "containerMultiImageBuildExcludes", []string{}, "Defines a list of Dockerfile paths to exclude from the build when using [`containerMultiImageBuild`](#containermultiimagebuild).")
 	cmd.Flags().StringVar(&stepConfig.ContainerMultiImageBuildTrimDir, "containerMultiImageBuildTrimDir", os.Getenv("PIPER_containerMultiImageBuildTrimDir"), "Defines a trailing directory part which should not be considered in the final image name.")
@@ -302,7 +314,7 @@ func addKanikoExecuteFlags(cmd *cobra.Command, stepConfig *kanikoExecuteOptions)
 	cmd.Flags().StringSliceVar(&stepConfig.TargetArchitectures, "targetArchitectures", []string{``}, "Defines the target architectures for which the build should run using OS and architecture separated by a comma. (EXPERIMENTAL)")
 	cmd.Flags().BoolVar(&stepConfig.ReadImageDigest, "readImageDigest", false, "")
 	cmd.Flags().BoolVar(&stepConfig.CreateBOM, "createBOM", false, "Creates the bill of materials (BOM) using Syft and stores it in a file in CycloneDX 1.4 format.")
-	cmd.Flags().StringVar(&stepConfig.SyftDownloadURL, "syftDownloadUrl", `https://github.com/anchore/syft/releases/download/v0.62.3/syft_0.62.3_linux_amd64.tar.gz`, "Specifies the download url of the Syft Linux amd64 tar binary file. This can be found at https://github.com/anchore/syft/releases/.")
+	cmd.Flags().StringVar(&stepConfig.SyftDownloadURL, "syftDownloadUrl", `https://github.com/anchore/syft/releases/download/v1.4.1/syft_1.4.1_linux_amd64.tar.gz`, "Specifies the download url of the Syft Linux amd64 tar binary file. This can be found at https://github.com/anchore/syft/releases/.")
 
 }
 
@@ -383,6 +395,14 @@ func kanikoExecuteMetadata() config.StepData {
 						Mandatory: false,
 						Aliases:   []config.Alias{{Name: "artifactVersion"}},
 						Default:   os.Getenv("PIPER_containerImageTag"),
+					},
+					{
+						Name:        "multipleImages",
+						ResourceRef: []config.ResourceReference{},
+						Scope:       []string{"PARAMETERS", "STEPS"},
+						Type:        "[]map[string]interface{}",
+						Mandatory:   false,
+						Aliases:     []config.Alias{{Name: "images"}},
 					},
 					{
 						Name:        "containerMultiImageBuild",
@@ -534,7 +554,7 @@ func kanikoExecuteMetadata() config.StepData {
 						Type:        "string",
 						Mandatory:   false,
 						Aliases:     []config.Alias{},
-						Default:     `https://github.com/anchore/syft/releases/download/v0.62.3/syft_0.62.3_linux_amd64.tar.gz`,
+						Default:     `https://github.com/anchore/syft/releases/download/v1.4.1/syft_1.4.1_linux_amd64.tar.gz`,
 					},
 				},
 			},

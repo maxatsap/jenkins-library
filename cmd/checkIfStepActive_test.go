@@ -1,8 +1,10 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -23,11 +25,14 @@ stages:
 steps:`
 	case "stage-config.yml":
 		fileContent = `
-stages:
-  testStage:
-    stepConditions:
-      testStep:
-        config: testConfig`
+spec:
+  stages:
+    - name: testStage
+      displayName: testStage
+      steps:
+        - name: testStep
+          conditions:
+            - configKey: testConfig`
 	case ".pipeline/config.yml":
 		fileContent = `
 steps: 
@@ -36,7 +41,7 @@ steps:
 	default:
 		fileContent = ""
 	}
-	return ioutil.NopCloser(strings.NewReader(fileContent)), nil
+	return io.NopCloser(strings.NewReader(fileContent)), nil
 }
 
 func checkStepActiveFileExistsMock(filename string) (bool, error) {

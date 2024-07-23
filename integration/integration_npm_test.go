@@ -8,12 +8,12 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 )
 
@@ -39,27 +39,28 @@ func TestNPMIntegrationRunScriptsWithOptions(t *testing.T) {
 cd /test
 /piperbin/piper npmExecuteScripts --runScripts=start --scriptOptions=--tag,tag1 >test-log.txt 2>&1
 `
-	ioutil.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
+	os.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
 
 	reqNode := testcontainers.ContainerRequest{
 		Image: "node:12-slim",
 		Cmd:   []string{"tail", "-f"},
-		BindMounts: map[string]string{
-			pwd:     "/piperbin",
-			tempDir: "/test",
-		},
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(pwd, "/piperbin"),
+			testcontainers.BindMount(tempDir, "/test"),
+		),
 	}
 
 	nodeContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: reqNode,
 		Started:          true,
 	})
+	require.NoError(t, err)
 
-	code, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
+	code, _, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
 	assert.NoError(t, err)
 	assert.Equal(t, 0, code)
 
-	content, err := ioutil.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
+	content, err := os.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
 	if err != nil {
 		t.Fatal("Could not read test-log.txt.", err)
 	}
@@ -90,27 +91,28 @@ func TestNPMIntegrationRegistrySetInFlags(t *testing.T) {
 cd /test
 /piperbin/piper npmExecuteScripts --install --runScripts=ci-build,ci-backend-unit-test --defaultNpmRegistry=https://foo.bar >test-log.txt 2>&1
 `
-	ioutil.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
+	os.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
 
 	reqNode := testcontainers.ContainerRequest{
 		Image: "node:12-slim",
 		Cmd:   []string{"tail", "-f"},
-		BindMounts: map[string]string{
-			pwd:     "/piperbin",
-			tempDir: "/test",
-		},
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(pwd, "/piperbin"),
+			testcontainers.BindMount(tempDir, "/test"),
+		),
 	}
 
 	nodeContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: reqNode,
 		Started:          true,
 	})
+	require.NoError(t, err)
 
-	code, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
+	code, _, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
 	assert.NoError(t, err)
 	assert.Equal(t, 0, code)
 
-	content, err := ioutil.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
+	content, err := os.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
 	if err != nil {
 		t.Fatal("Could not read test-log.txt.", err)
 	}
@@ -140,27 +142,28 @@ func TestNPMIntegrationRegistrySetInNpmrc(t *testing.T) {
 cd /test
 /piperbin/piper npmExecuteScripts --install --runScripts=ci-build,ci-backend-unit-test >test-log.txt 2>&1
 `
-	ioutil.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
+	os.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
 
 	reqNode := testcontainers.ContainerRequest{
 		Image: "node:12-slim",
 		Cmd:   []string{"tail", "-f"},
-		BindMounts: map[string]string{
-			pwd:     "/piperbin",
-			tempDir: "/test",
-		},
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(pwd, "/piperbin"),
+			testcontainers.BindMount(tempDir, "/test"),
+		),
 	}
 
 	nodeContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: reqNode,
 		Started:          true,
 	})
+	require.NoError(t, err)
 
-	code, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
+	code, _, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
 	assert.NoError(t, err)
 	assert.Equal(t, 0, code)
 
-	content, err := ioutil.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
+	content, err := os.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
 	if err != nil {
 		t.Fatal("Could not read test-log.txt.", err)
 	}
@@ -190,27 +193,28 @@ func TestNPMIntegrationRegistryWithTwoModules(t *testing.T) {
 cd /test
 /piperbin/piper npmExecuteScripts --install --runScripts=ci-build,ci-backend-unit-test --defaultNpmRegistry=https://foo.bar >test-log.txt 2>&1
 `
-	ioutil.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
+	os.WriteFile(filepath.Join(tempDir, "runPiper.sh"), []byte(testScript), 0700)
 
 	reqNode := testcontainers.ContainerRequest{
 		Image: "node:12-slim",
 		Cmd:   []string{"tail", "-f"},
-		BindMounts: map[string]string{
-			pwd:     "/piperbin",
-			tempDir: "/test",
-		},
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(pwd, "/piperbin"),
+			testcontainers.BindMount(tempDir, "/test"),
+		),
 	}
 
 	nodeContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: reqNode,
 		Started:          true,
 	})
+	require.NoError(t, err)
 
-	code, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
+	code, _, err := nodeContainer.Exec(ctx, []string{"sh", "/test/runPiper.sh"})
 	assert.NoError(t, err)
 	assert.Equal(t, 0, code)
 
-	content, err := ioutil.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
+	content, err := os.ReadFile(filepath.Join(tempDir, "/test-log.txt"))
 	if err != nil {
 		t.Fatal("Could not read test-log.txt.", err)
 	}

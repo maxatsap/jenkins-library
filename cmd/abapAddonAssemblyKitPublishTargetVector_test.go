@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
@@ -34,7 +37,7 @@ func TestPublishTargetVectorStep(t *testing.T) {
 		utils := bundle.GetUtils()
 
 		//act
-		err := runAbapAddonAssemblyKitPublishTargetVector(&config, nil, &utils)
+		err := runAbapAddonAssemblyKitPublishTargetVector(&config, &utils)
 		//assert
 		assert.NoError(t, err, "Did not expect error")
 	})
@@ -51,7 +54,7 @@ func TestPublishTargetVectorStep(t *testing.T) {
 		utils := bundle.GetUtils()
 
 		//act
-		err := runAbapAddonAssemblyKitPublishTargetVector(&config, nil, &utils)
+		err := runAbapAddonAssemblyKitPublishTargetVector(&config, &utils)
 		//assert
 		assert.NoError(t, err, "Did not expect error")
 	})
@@ -64,7 +67,7 @@ func TestPublishTargetVectorStep(t *testing.T) {
 		utils := bundle.GetUtils()
 
 		//act
-		err := runAbapAddonAssemblyKitPublishTargetVector(&config, nil, &utils)
+		err := runAbapAddonAssemblyKitPublishTargetVector(&config, &utils)
 		//assert
 		assert.Error(t, err, "Must end with error")
 	})
@@ -77,7 +80,7 @@ func TestPublishTargetVectorStep(t *testing.T) {
 		utils := bundle.GetUtils()
 
 		//act
-		err := runAbapAddonAssemblyKitPublishTargetVector(&config, nil, &utils)
+		err := runAbapAddonAssemblyKitPublishTargetVector(&config, &utils)
 		//assert
 		assert.Error(t, err, "Must end with error")
 	})

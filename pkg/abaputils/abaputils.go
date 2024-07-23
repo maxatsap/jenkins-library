@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -60,7 +59,7 @@ func (abaputils *AbapUtils) GetAbapCommunicationArrangementInfo(options AbapEnvi
 		connectionDetails.Password = options.Password
 	} else {
 		if options.CfAPIEndpoint == "" || options.CfOrg == "" || options.CfSpace == "" || options.CfServiceInstance == "" || options.CfServiceKeyName == "" {
-			var err = errors.New("Parameters missing. Please provide EITHER the Host of the ABAP server OR the Cloud Foundry ApiEndpoint, Organization, Space, Service Instance and a corresponding Service Key for the Communication Scenario SAP_COM_0510")
+			var err = errors.New("Parameters missing. Please provide EITHER the Host of the ABAP server OR the Cloud Foundry API Endpoint, Organization, Space, Service Instance and Service Key")
 			log.SetErrorCategory(log.ErrorConfiguration)
 			return connectionDetails, err
 		}
@@ -155,7 +154,7 @@ func ReadConfigFile(path string) (file []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	yamlFile, err := ioutil.ReadFile(filename)
+	yamlFile, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +165,9 @@ func ReadConfigFile(path string) (file []byte, err error) {
 
 // GetHTTPResponse wraps the SendRequest function of piperhttp
 func GetHTTPResponse(requestType string, connectionDetails ConnectionDetailsHTTP, body []byte, client piperhttp.Sender) (*http.Response, error) {
+
+	log.Entry().Debugf("Request body: %s", string(body))
+	log.Entry().Debugf("Request user: %s", connectionDetails.User)
 
 	header := make(map[string][]string)
 	header["Content-Type"] = []string{"application/json"}
@@ -182,32 +184,45 @@ func GetHTTPResponse(requestType string, connectionDetails ConnectionDetailsHTTP
 // Further error details may be present in the response body of the HTTP response.
 // If the response body is parseable, the included details are wrapped around the original error from the HTTP repsponse.
 // If this is not possible, the original error is returned.
-func HandleHTTPError(resp *http.Response, err error, message string, connectionDetails ConnectionDetailsHTTP) error {
+func HandleHTTPError(resp *http.Response, err error, message string, connectionDetails ConnectionDetailsHTTP) (string, error) {
+
+	var errorText string
+	var errorCode string
+	var parsingError error
 	if resp == nil {
 		// Response is nil in case of a timeout
 		log.Entry().WithError(err).WithField("ABAP Endpoint", connectionDetails.URL).Error("Request failed")
+
+		match, _ := regexp.MatchString(".*EOF$", err.Error())
+		if match {
+			AddDefaultDashedLine(1)
+			log.Entry().Infof("%s", "A connection could not be established to the ABAP system. The typical root cause is the network configuration (firewall, IP allowlist, etc.)")
+			AddDefaultDashedLine(1)
+		}
+
+		log.Entry().Infof("Error message: %s,", err.Error())
 	} else {
 
 		defer resp.Body.Close()
 
-		log.Entry().WithField("StatusCode", resp.Status).Error(message)
+		log.Entry().WithField("StatusCode", resp.Status).WithField("User", connectionDetails.User).WithField("URL", connectionDetails.URL).Error(message)
 
-		errorText, errorCode, parsingError := GetErrorDetailsFromResponse(resp)
+		errorText, errorCode, parsingError = GetErrorDetailsFromResponse(resp)
 		if parsingError != nil {
-			return err
+			return "", err
 		}
 		abapError := errors.New(fmt.Sprintf("%s - %s", errorCode, errorText))
 		err = errors.Wrap(abapError, err.Error())
 
 	}
-	return err
+	return errorCode, err
 }
 
 func GetErrorDetailsFromResponse(resp *http.Response) (errorString string, errorCode string, err error) {
 
 	// Include the error message of the ABAP Environment system, if available
 	var abapErrorResponse AbapError
-	bodyText, readError := ioutil.ReadAll(resp.Body)
+	bodyText, readError := io.ReadAll(resp.Body)
 	if readError != nil {
 		return "", "", readError
 	}
@@ -228,15 +243,16 @@ func GetErrorDetailsFromResponse(resp *http.Response) (errorString string, error
 
 }
 
-// ConvertTime formats an ABAP timestamp string from format /Date(1585576807000+0000)/ into a UNIX timestamp and returns it
-func ConvertTime(logTimeStamp string) time.Time {
-	seconds := strings.TrimPrefix(strings.TrimSuffix(logTimeStamp, "000+0000)/"), "/Date(")
-	n, error := strconv.ParseInt(seconds, 10, 64)
-	if error != nil {
-		return time.Unix(0, 0).UTC()
+// AddDefaultDashedLine adds 25 dashes
+func AddDefaultDashedLine(j int) {
+	for i := 1; i <= j; i++ {
+		log.Entry().Infof(strings.Repeat("-", 25))
 	}
-	t := time.Unix(n, 0).UTC()
-	return t
+}
+
+// AddDefaultDebugLine adds 25 dashes in debug
+func AddDebugDashedLine() {
+	log.Entry().Debugf(strings.Repeat("-", 25))
 }
 
 /*******************************
@@ -269,6 +285,9 @@ type AbapEnvironmentRunATCCheckOptions struct {
 type AbapEnvironmentOptions struct {
 	Username          string `json:"username,omitempty"`
 	Password          string `json:"password,omitempty"`
+	ByogUsername      string `json:"byogUsername,omitempty"`
+	ByogPassword      string `json:"byogPassword,omitempty"`
+	ByogAuthMethod    string `json:"byogAuthMethod,omitempty"`
 	Host              string `json:"host,omitempty"`
 	CfAPIEndpoint     string `json:"cfApiEndpoint,omitempty"`
 	CfOrg             string `json:"cfOrg,omitempty"`
@@ -284,11 +303,12 @@ type AbapMetadata struct {
 
 // ConnectionDetailsHTTP contains fields for HTTP connections including the XCSRF token
 type ConnectionDetailsHTTP struct {
-	Host       string
-	User       string `json:"user"`
-	Password   string `json:"password"`
-	URL        string `json:"url"`
-	XCsrfToken string `json:"xcsrftoken"`
+	Host             string
+	User             string   `json:"user"`
+	Password         string   `json:"password"`
+	URL              string   `json:"url"`
+	XCsrfToken       string   `json:"xcsrftoken"`
+	CertificateNames []string `json:"-"`
 }
 
 // AbapError contains the error code and the error message for ABAP errors
@@ -351,6 +371,7 @@ type ClientMock struct {
 	Error              error
 	NilResponse        bool
 	ErrorInsteadOfDump bool
+	ErrorList          []error
 }
 
 // SetOptions sets clientOptions for a client mock
@@ -364,8 +385,10 @@ func (c *ClientMock) SendRequest(method, url string, bdy io.Reader, hdr http.Hea
 	}
 
 	var body []byte
+	var responseError error
 	if c.Body != "" {
 		body = []byte(c.Body)
+		responseError = c.Error
 	} else {
 		if c.ErrorInsteadOfDump && len(c.BodyList) == 0 {
 			return nil, errors.New("No more bodies in the list")
@@ -373,14 +396,20 @@ func (c *ClientMock) SendRequest(method, url string, bdy io.Reader, hdr http.Hea
 		bodyString := c.BodyList[len(c.BodyList)-1]
 		c.BodyList = c.BodyList[:len(c.BodyList)-1]
 		body = []byte(bodyString)
+		if len(c.ErrorList) == 0 {
+			responseError = c.Error
+		} else {
+			responseError = c.ErrorList[len(c.ErrorList)-1]
+			c.ErrorList = c.ErrorList[:len(c.ErrorList)-1]
+		}
 	}
 	header := http.Header{}
 	header.Set("X-Csrf-Token", c.Token)
 	return &http.Response{
 		StatusCode: c.StatusCode,
 		Header:     header,
-		Body:       ioutil.NopCloser(bytes.NewReader(body)),
-	}, c.Error
+		Body:       io.NopCloser(bytes.NewReader(body)),
+	}, responseError
 }
 
 // DownloadFile : Empty file download

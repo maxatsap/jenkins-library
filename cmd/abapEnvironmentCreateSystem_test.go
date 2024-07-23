@@ -1,7 +1,9 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -72,7 +74,7 @@ func TestRunAbapEnvironmentCreateSystem(t *testing.T) {
 		  plan:   "testPlan"`
 
 		manifestFileStringBody := []byte(manifestFileString)
-		err := ioutil.WriteFile("customManifest.yml", manifestFileStringBody, 0644)
+		err := os.WriteFile("customManifest.yml", manifestFileStringBody, 0644)
 
 		err = runAbapEnvironmentCreateSystem(&config, nil, cf, u)
 		if assert.NoError(t, err) {
@@ -121,7 +123,7 @@ repositories:
 `
 
 		addonYMLBytes := []byte(addonYML)
-		err := ioutil.WriteFile("addon.yml", addonYMLBytes, 0644)
+		err := os.WriteFile("addon.yml", addonYMLBytes, 0644)
 
 		expectedResult := "{\"admin_email\":\"user@example.com\",\"is_development_allowed\":true,\"sapsystemname\":\"H02\",\"size_of_persistence\":4,\"size_of_runtime\":4,\"addon_product_name\":\"myProduct\",\"addon_product_version\":\"1.2.3\",\"parent_saas_appname\":\"addon_test\"}"
 
@@ -165,7 +167,7 @@ repositories:
 `
 
 		addonYMLBytes := []byte(addonYML)
-		err := ioutil.WriteFile("addon.yml", addonYMLBytes, 0644)
+		err := os.WriteFile("addon.yml", addonYMLBytes, 0644)
 
 		expectedResult := "{\"admin_email\":\"user@example.com\",\"is_development_allowed\":true,\"sapsystemname\":\"H02\",\"size_of_persistence\":4,\"size_of_runtime\":4}"
 
@@ -211,7 +213,7 @@ repositories:
 `
 
 		addonYMLBytes := []byte(addonYML)
-		err := ioutil.WriteFile("addon.yml", addonYMLBytes, 0644)
+		err := os.WriteFile("addon.yml", addonYMLBytes, 0644)
 
 		expectedResult := "{\"admin_email\":\"user@example.com\",\"is_development_allowed\":false,\"sapsystemname\":\"H02\",\"size_of_persistence\":4,\"size_of_runtime\":4,\"addon_product_name\":\"myProduct\",\"addon_product_version\":\"1.2.3\",\"parent_saas_appname\":\"addon_test\"}"
 

@@ -1,7 +1,10 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -101,7 +104,7 @@ func TestRunIntegrationArtifactTriggerIntegrationTest(t *testing.T) {
 
 		utils := newIntegrationArtifactTriggerIntegrationTestTestsUtils()
 		utils.AddFile(config.MessageBodyPath, []byte("dummycontent1")) //have to add a file here to see in utils
-		if err := ioutil.WriteFile(config.MessageBodyPath, []byte("dummycontent2"), 0755); err != nil {
+		if err := os.WriteFile(config.MessageBodyPath, []byte("dummycontent2"), 0755); err != nil {
 			t.Fail()
 		}
 		httpClient := httpMockCpis{CPIFunction: "TriggerIntegrationTest", ResponseBody: ``, TestType: "Positive"}
@@ -135,7 +138,7 @@ func TestRunIntegrationArtifactTriggerIntegrationTest(t *testing.T) {
 
 		utils := newIntegrationArtifactTriggerIntegrationTestTestsUtils()
 		//utils.AddFile(config.MessageBodyPath, []byte("dummycontent1")) //have to add a file here to see in utils
-		//ioutil.WriteFile(config.MessageBodyPath, []byte("dummycontent2"), 0755)
+		//os.WriteFile(config.MessageBodyPath, []byte("dummycontent2"), 0755)
 		httpClient := httpMockCpis{CPIFunction: "TriggerIntegrationTest", ResponseBody: ``, TestType: "Positive"}
 		cpe := integrationArtifactTriggerIntegrationTestCommonPipelineEnvironment{}
 
@@ -169,7 +172,7 @@ func TestRunIntegrationArtifactTriggerIntegrationTest(t *testing.T) {
 
 		utils := newIntegrationArtifactTriggerIntegrationTestTestsUtils()
 		utils.AddFile(config.MessageBodyPath, []byte(nil)) //have to add a file here to see in utils
-		if err := ioutil.WriteFile(config.MessageBodyPath, []byte(nil), 0755); err != nil {
+		if err := os.WriteFile(config.MessageBodyPath, []byte(nil), 0755); err != nil {
 			t.Fail()
 		}
 		httpClient := httpMockCpis{CPIFunction: "TriggerIntegrationTest", ResponseBody: ``, TestType: "Positive"}
