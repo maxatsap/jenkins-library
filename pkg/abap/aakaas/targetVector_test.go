@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package aakaas
 
 import (
@@ -144,7 +147,7 @@ func TestTargetVectorCreate(t *testing.T) {
 		mc := abapbuild.NewMockClient()
 		mc.AddData(AAKaaSHead)
 		mc.AddData(AAKaaSTVCreatePost)
-		errInitConn := conn.InitAAKaaS("", "dummyUser", "dummyPassword", &mc)
+		errInitConn := conn.InitAAKaaS("", "dummyUser", "dummyPassword", &mc, "", "", "")
 		assert.NoError(t, errInitConn)
 
 		errInitTV := targetVector.InitNew(&addonDescriptor)
@@ -168,7 +171,7 @@ func TestTargetVectorPublish(t *testing.T) {
 		mc := abapbuild.NewMockClient()
 		mc.AddData(AAKaaSHead)
 		mc.AddData(AAKaaSTVPublishTestPost)
-		errInitConn := conn.InitAAKaaS("", "dummyUser", "dummyPassword", &mc)
+		errInitConn := conn.InitAAKaaS("", "dummyUser", "dummyPassword", &mc, "", "", "")
 		assert.NoError(t, errInitConn)
 
 		//act

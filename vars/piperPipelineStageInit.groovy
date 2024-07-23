@@ -203,9 +203,6 @@ void call(Map parameters = [:]) {
             echo "piper-lib-os  configuration: ${script.commonPipelineEnvironment.configuration}"
         }
 
-        // telemetry reporting
-        utils.pushToSWA([step: STEP_NAME], config)
-
         piperInitRunStageConfiguration script: script, stageConfigResource: config.stageConfigResource
 
         // CHANGE_ID is set only for pull requests
@@ -302,7 +299,7 @@ private String inferProjectName(Script script, String buildTool, String buildToo
 }
 
 private checkBuildTool(String buildTool, String buildDescriptorPattern) {
-    if (buildDescriptorPattern && !findFiles(glob: buildDescriptorPattern)) {
+    if (buildTool != "mta" && !findFiles(glob: buildDescriptorPattern)) {
         error "[${STEP_NAME}] buildTool configuration '${buildTool}' does not fit to your project (buildDescriptorPattern: '${buildDescriptorPattern}'), please set buildTool as general setting in your .pipeline/config.yml correctly, see also https://sap.github.io/jenkins-library/configuration/"
     }
 }

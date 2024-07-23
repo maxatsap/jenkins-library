@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package maven
 
 import (
@@ -152,6 +155,18 @@ func TestSettings(t *testing.T) {
 				assert.Equal(t, projectSettings.Servers.ServerType[1].ID, "dummyRepoId2")
 			}
 
+		}
+	})
+
+	t.Run("update server tag in existing settings file - invalid settings.xml", func(t *testing.T) {
+
+		utilsMock := newSettingsDownloadTestUtilsBundle()
+		xmlstring := []byte("well this is obviously invalid")
+		utilsMock.FileWrite(".pipeline/mavenProjectSettings", xmlstring, 0777)
+
+		_, err := UpdateProjectSettingsXML(".pipeline/mavenProjectSettings", "dummyRepoId2", "dummyRepoUser2", "dummyRepoPassword2", utilsMock)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "failed to unmarshal settings xml file")
 		}
 	})
 

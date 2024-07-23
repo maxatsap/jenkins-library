@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
@@ -19,7 +22,7 @@ func TestCheckPVStep(t *testing.T) {
 	config.Password = "dummyPassword"
 	t.Run("step success", func(t *testing.T) {
 		config.AddonDescriptorFileName = "success"
-		err := runAbapAddonAssemblyKitCheckPV(&config, nil, utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckPV(&config, utils, &cpe)
 		assert.NoError(t, err, "Did not expect error")
 		var addonDescriptorFinal abaputils.AddonDescriptor
 		err = json.Unmarshal([]byte(cpe.abap.addonDescriptor), &addonDescriptorFinal)
@@ -30,7 +33,7 @@ func TestCheckPVStep(t *testing.T) {
 	})
 	t.Run("step error - in ReadAddonDescriptor", func(t *testing.T) {
 		config.AddonDescriptorFileName = "failing"
-		err := runAbapAddonAssemblyKitCheckPV(&config, nil, utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckPV(&config, utils, &cpe)
 		assert.Error(t, err, "Did expect error")
 		assert.Equal(t, err.Error(), "error in ReadAddonDescriptor")
 	})
@@ -38,7 +41,7 @@ func TestCheckPVStep(t *testing.T) {
 		config.AddonDescriptorFileName = "success"
 		bundle.SetBody("ErrorBody")
 		bundle.SetError("error during validation")
-		err := runAbapAddonAssemblyKitCheckPV(&config, nil, utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckPV(&config, utils, &cpe)
 		assert.Error(t, err, "Did expect error")
 	})
 }

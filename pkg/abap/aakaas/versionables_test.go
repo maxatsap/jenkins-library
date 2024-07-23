@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package aakaas
 
 import (
@@ -42,7 +45,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasCVGetReleaseExisting)
 		err := vers.constructVersionable("DummyComp", wildCard+".0.0", *conn, cvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterCV)
 		assert.NoError(t, err)
 		assert.Equal(t, "2", vers.TechRelease)
 		assert.Equal(t, "0000", vers.TechSpLevel)
@@ -53,7 +56,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasCVGetReleaseNonExisting)
 		err := vers.constructVersionable("DummyComp", wildCard+".0.0", *conn, cvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterCV)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", vers.TechRelease)
 		assert.Equal(t, "0000", vers.TechSpLevel)
@@ -64,7 +67,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasCVGetSpLevelExisting)
 		err := vers.constructVersionable("DummyComp", "1."+wildCard+".0", *conn, cvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterCV)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", vers.TechRelease)
 		assert.Equal(t, "0008", vers.TechSpLevel)
@@ -76,7 +79,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasCVGetSpLevelNonExisting)
 		err := vers.constructVersionable("DummyComp", "1."+wildCard+".0", *conn, cvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterCV)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", vers.TechRelease)
 		assert.Equal(t, "0001", vers.TechSpLevel)
@@ -87,7 +90,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasCVGetPatchLevelExisting)
 		err := vers.constructVersionable("DummyComp", "1.3."+wildCard, *conn, cvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterCV)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", vers.TechRelease)
 		assert.Equal(t, "0003", vers.TechSpLevel)
@@ -99,7 +102,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasCVGetPatchLevelNonExisting)
 		err := vers.constructVersionable("DummyComp", "1.3."+wildCard, *conn, cvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterCV)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", vers.TechRelease)
 		assert.Equal(t, "0003", vers.TechSpLevel)
@@ -110,7 +113,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasPVGetReleaseExisting)
 		err := vers.constructVersionable("DummyProd", wildCard+".0.0", *conn, pvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterPV)
 		assert.NoError(t, err)
 		assert.Equal(t, "2", vers.TechRelease)
 		assert.Equal(t, "0000", vers.TechSpLevel)
@@ -121,7 +124,7 @@ func TestCvResolve(t *testing.T) {
 		mc.AddData(testDataAakaasPVGetReleaseNonExisting)
 		err := vers.constructVersionable("DummyProd", wildCard+".0.0", *conn, pvQueryURL)
 		assert.NoError(t, err)
-		err = vers.resolveNext()
+		err = vers.resolveNext(statusFilterPV)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", vers.TechRelease)
 		assert.Equal(t, "0000", vers.TechSpLevel)

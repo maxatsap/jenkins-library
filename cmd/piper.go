@@ -53,6 +53,8 @@ type GeneralConfigOptions struct {
 type HookConfiguration struct {
 	SentryConfig SentryConfiguration `json:"sentry,omitempty"`
 	SplunkConfig SplunkConfiguration `json:"splunk,omitempty"`
+	PendoConfig  PendoConfiguration  `json:"pendo,omitempty"`
+	OIDCConfig   OIDCConfiguration   `json:"oidc,omitempty"`
 }
 
 // SentryConfiguration defines the configuration options for the Sentry logging system
@@ -62,10 +64,22 @@ type SentryConfiguration struct {
 
 // SplunkConfiguration defines the configuration options for the Splunk logging system
 type SplunkConfiguration struct {
-	Dsn      string `json:"dsn,omitempty"`
-	Token    string `json:"token,omitempty"`
-	Index    string `json:"index,omitempty"`
-	SendLogs bool   `json:"sendLogs"`
+	Dsn               string `json:"dsn,omitempty"`
+	Token             string `json:"token,omitempty"`
+	Index             string `json:"index,omitempty"`
+	SendLogs          bool   `json:"sendLogs"`
+	ProdCriblEndpoint string `json:"prodCriblEndpoint,omitempty"`
+	ProdCriblToken    string `json:"prodCriblToken,omitempty"`
+	ProdCriblIndex    string `json:"prodCriblIndex,omitempty"`
+}
+
+type PendoConfiguration struct {
+	Token string `json:"token,omitempty"`
+}
+
+// OIDCConfiguration defines the configuration options for the OpenID Connect authentication system
+type OIDCConfiguration struct {
+	RoleID string `json:",roleID,omitempty"`
 }
 
 var rootCmd = &cobra.Command{
@@ -82,7 +96,9 @@ var GeneralConfig GeneralConfigOptions
 
 // Execute is the starting point of the piper command line tool
 func Execute() {
+	log.Entry().Infof("Version %s", GitCommit)
 
+	rootCmd.AddCommand(GcpPublishEventCommand())
 	rootCmd.AddCommand(ArtifactPrepareVersionCommand())
 	rootCmd.AddCommand(ConfigCommand())
 	rootCmd.AddCommand(DefaultsCommand())
@@ -111,8 +127,11 @@ func Execute() {
 	rootCmd.AddCommand(AbapEnvironmentCreateTagCommand())
 	rootCmd.AddCommand(AbapEnvironmentCreateSystemCommand())
 	rootCmd.AddCommand(CheckmarxExecuteScanCommand())
+	rootCmd.AddCommand(CheckmarxOneExecuteScanCommand())
 	rootCmd.AddCommand(FortifyExecuteScanCommand())
 	rootCmd.AddCommand(CodeqlExecuteScanCommand())
+	rootCmd.AddCommand(ContrastExecuteScanCommand())
+	rootCmd.AddCommand(CredentialdiggerScanCommand())
 	rootCmd.AddCommand(MtaBuildCommand())
 	rootCmd.AddCommand(ProtecodeExecuteScanCommand())
 	rootCmd.AddCommand(MavenExecuteCommand())
@@ -142,6 +161,7 @@ func Execute() {
 	rootCmd.AddCommand(AbapEnvironmentAssemblePackagesCommand())
 	rootCmd.AddCommand(AbapAddonAssemblyKitCheckCVsCommand())
 	rootCmd.AddCommand(AbapAddonAssemblyKitCheckPVCommand())
+	rootCmd.AddCommand(AbapAddonAssemblyKitCheckCommand())
 	rootCmd.AddCommand(AbapAddonAssemblyKitCreateTargetVectorCommand())
 	rootCmd.AddCommand(AbapAddonAssemblyKitPublishTargetVectorCommand())
 	rootCmd.AddCommand(AbapAddonAssemblyKitRegisterPackagesCommand())
@@ -192,7 +212,11 @@ func Execute() {
 	rootCmd.AddCommand(AnsSendEventCommand())
 	rootCmd.AddCommand(ApiProviderListCommand())
 	rootCmd.AddCommand(TmsUploadCommand())
+	rootCmd.AddCommand(TmsExportCommand())
 	rootCmd.AddCommand(IntegrationArtifactTransportCommand())
+	rootCmd.AddCommand(AscAppUploadCommand())
+	rootCmd.AddCommand(AbapLandscapePortalUpdateAddOnProductCommand())
+	rootCmd.AddCommand(ImagePushToRegistryCommand())
 
 	addRootFlags(rootCmd)
 
@@ -203,16 +227,13 @@ func Execute() {
 }
 
 func addRootFlags(rootCmd *cobra.Command) {
-	var provider orchestrator.OrchestratorSpecificConfigProviding
-	var err error
-
-	provider, err = orchestrator.NewOrchestratorSpecificConfigProvider()
+	provider, err := orchestrator.GetOrchestratorConfigProvider(nil)
 	if err != nil {
 		log.Entry().Error(err)
 		provider = &orchestrator.UnknownOrchestratorConfigProvider{}
 	}
 
-	rootCmd.PersistentFlags().StringVar(&GeneralConfig.CorrelationID, "correlationID", provider.GetBuildURL(), "ID for unique identification of a pipeline run")
+	rootCmd.PersistentFlags().StringVar(&GeneralConfig.CorrelationID, "correlationID", provider.BuildURL(), "ID for unique identification of a pipeline run")
 	rootCmd.PersistentFlags().StringVar(&GeneralConfig.CustomConfig, "customConfig", ".pipeline/config.yml", "Path to the pipeline configuration file")
 	rootCmd.PersistentFlags().StringSliceVar(&GeneralConfig.GitHubTokens, "gitHubTokens", AccessTokensFromEnvJSON(os.Getenv("PIPER_gitHubTokens")), "List of entries in form of <hostname>:<token> to allow GitHub token authentication for downloading config / defaults")
 	rootCmd.PersistentFlags().StringSliceVar(&GeneralConfig.DefaultConfig, "defaultConfig", []string{".pipeline/defaults.yaml"}, "Default configurations, passed as path to yaml file")
@@ -270,7 +291,7 @@ func initStageName(outputToLog bool) {
 	var stageNameSource string
 	if outputToLog {
 		defer func() {
-			log.Entry().Infof("Using stageName '%s' from %s", GeneralConfig.StageName, stageNameSource)
+			log.Entry().Debugf("Using stageName '%s' from %s", GeneralConfig.StageName, stageNameSource)
 		}()
 	}
 
@@ -281,12 +302,12 @@ func initStageName(outputToLog bool) {
 	}
 
 	// Use stageName from ENV as fall-back, for when extracting it from parametersJSON fails below
-	provider, err := orchestrator.NewOrchestratorSpecificConfigProvider()
+	provider, err := orchestrator.GetOrchestratorConfigProvider(nil)
 	if err != nil {
 		log.Entry().WithError(err).Warning("Cannot infer stage name from CI environment")
 	} else {
 		stageNameSource = "env variable"
-		GeneralConfig.StageName = provider.GetStageName()
+		GeneralConfig.StageName = provider.StageName()
 	}
 
 	if len(GeneralConfig.ParametersJSON) == 0 {
@@ -361,7 +382,7 @@ func PrepareConfig(cmd *cobra.Command, metadata *config.StepData, stepName strin
 		{
 			projectConfigFile := getProjectConfigFile(GeneralConfig.CustomConfig)
 			if exists, err := piperutils.FileExists(projectConfigFile); exists {
-				log.Entry().Infof("Project config: '%s'", projectConfigFile)
+				log.Entry().Debugf("Project config: '%s'", projectConfigFile)
 				if customConfig, err = openFile(projectConfigFile, GeneralConfig.GitHubAccessTokens); err != nil {
 					return errors.Wrapf(err, "Cannot read '%s'", projectConfigFile)
 				}
@@ -379,11 +400,11 @@ func PrepareConfig(cmd *cobra.Command, metadata *config.StepData, stepName strin
 			// only create error for non-default values
 			if err != nil {
 				if projectDefaultFile != ".pipeline/defaults.yaml" {
-					log.Entry().Infof("Project defaults: '%s'", projectDefaultFile)
+					log.Entry().Debugf("Project defaults: '%s'", projectDefaultFile)
 					return errors.Wrapf(err, "Cannot read '%s'", projectDefaultFile)
 				}
 			} else {
-				log.Entry().Infof("Project defaults: '%s'", projectDefaultFile)
+				log.Entry().Debugf("Project defaults: '%s'", projectDefaultFile)
 				defaultConfig = append(defaultConfig, fc)
 			}
 		}
@@ -399,9 +420,10 @@ func PrepareConfig(cmd *cobra.Command, metadata *config.StepData, stepName strin
 		}
 	}
 
-	if fmt.Sprintf("%v", stepConfig.Config["collectTelemetryData"]) == "false" {
-		GeneralConfig.NoTelemetry = true
-	}
+	// since Pendo has been sunset
+	// disable telemetry reporting in go
+	// follow-up cleanup needed
+	GeneralConfig.NoTelemetry = true
 
 	stepConfig.Config = checkTypes(stepConfig.Config, options)
 	confJSON, _ := json.Marshal(stepConfig.Config)
@@ -428,7 +450,7 @@ func PrepareConfig(cmd *cobra.Command, metadata *config.StepData, stepName strin
 
 func retrieveHookConfig(source map[string]interface{}, target *HookConfiguration) {
 	if source != nil {
-		log.Entry().Info("Retrieving hook configuration")
+		log.Entry().Debug("Retrieving hook configuration")
 		b, err := json.Marshal(source)
 		if err != nil {
 			log.Entry().Warningf("Failed to marshal source hook configuration: %v", err)

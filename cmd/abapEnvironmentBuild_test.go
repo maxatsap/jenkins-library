@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
@@ -73,7 +76,7 @@ func TestRunAbapEnvironmentBuild(t *testing.T) {
 		config.PublishAllDownloadedResultFiles = true
 		utils := newAbapEnvironmentBuildTestsUtils()
 		// test
-		err := runAbapEnvironmentBuild(&config, nil, utils, &cpe)
+		err := runAbapEnvironmentBuild(&config, utils, &cpe)
 		// assert
 		finalValues := `[{"value_id":"PHASE","value":"AUNIT"},{"value_id":"PACKAGES","value":"/BUILD/AUNIT_DUMMY_TESTS"},{"value_id":"MyId1","value":"AunitValue1"},{"value_id":"MyId2","value":"AunitValue2"},{"value_id":"BUILD_FRAMEWORK_MODE","value":"P"}]`
 		assert.NoError(t, err)
@@ -90,7 +93,7 @@ func TestRunAbapEnvironmentBuild(t *testing.T) {
 		config.AbapSourceClient = "001"
 		utils := newAbapEnvironmentBuildTestsUtilsWithClient()
 		// test
-		err := runAbapEnvironmentBuild(&config, nil, utils, &cpe)
+		err := runAbapEnvironmentBuild(&config, utils, &cpe)
 		// assert
 		finalValues := `[{"value_id":"PHASE","value":"AUNIT"},{"value_id":"SUN","value":"SUMMER"}]`
 		assert.NoError(t, err)
@@ -108,7 +111,7 @@ func TestRunAbapEnvironmentBuild(t *testing.T) {
 		config.PublishResultFilenames = []string{"SAR_XML"}
 		utils := newAbapEnvironmentBuildTestsUtils()
 		// test
-		err := runAbapEnvironmentBuild(&config, nil, utils, &cpe)
+		err := runAbapEnvironmentBuild(&config, utils, &cpe)
 		// assert
 		assert.NoError(t, err)
 	})
@@ -127,9 +130,9 @@ func TestRunAbapEnvironmentBuild(t *testing.T) {
 		config.UseFieldsOfAddonDescriptor = `[{"use":"Name","renameTo":"MyId1"},{"use":"Status","renameTo":"MyId2"}]`
 		utils := newAbapEnvironmentBuildTestsUtils()
 		// test
-		err := runAbapEnvironmentBuild(&config, nil, utils, &cpe)
+		err := runAbapEnvironmentBuild(&config, utils, &cpe)
 		// assert
-		finalValues := `[{"value_id":"PACKAGES","value":"/BUILD/AUNIT_DUMMY_TESTS"},{"value_id":"BUILD_FRAMEWORK_MODE","value":"P"}]`
+		finalValues := `[{"value_id":"PACKAGES","value":"/BUILD/AUNIT_DUMMY_TESTS"}]`
 		err = json.Unmarshal([]byte(finalValues), &expectedValueList)
 		assert.NoError(t, err)
 		err = json.Unmarshal([]byte(cpe.abap.buildValues), &recordedValueList)
@@ -149,7 +152,7 @@ func TestRunAbapEnvironmentBuild(t *testing.T) {
 		config.PublishResultFilenames = []string{"SAR_XML"}
 		utils := newAbapEnvironmentBuildTestsUtils()
 		// test
-		err := runAbapEnvironmentBuild(&config, nil, utils, &cpe)
+		err := runAbapEnvironmentBuild(&config, utils, &cpe)
 		// assert
 		assert.Error(t, err)
 	})
@@ -165,7 +168,7 @@ func TestRunAbapEnvironmentBuild(t *testing.T) {
 		config.PublishAllDownloadedResultFiles = true
 		utils := newAbapEnvironmentBuildTestsUtils()
 		// test
-		err := runAbapEnvironmentBuild(&config, nil, utils, &cpe)
+		err := runAbapEnvironmentBuild(&config, utils, &cpe)
 		// assert
 		assert.Error(t, err)
 	})
@@ -385,6 +388,17 @@ func TestEvaluateAddonDescriptor(t *testing.T) {
 		// assert
 		assert.Error(t, err)
 		assert.Equal(t, 0, len(values))
+	})
+}
+
+func TestValues2String(t *testing.T) {
+	t.Run("dito", func(t *testing.T) {
+		var myValues []abapbuild.Value
+		myValues = append(myValues, abapbuild.Value{ValueID: "Name", Value: "Hugo"})
+		myValues = append(myValues, abapbuild.Value{ValueID: "Age", Value: "43"})
+		myValues = append(myValues, abapbuild.Value{ValueID: "Hight", Value: "17cm"})
+		myString := values2string(myValues)
+		assert.Equal(t, "Name = Hugo; Age = 43; Hight = 17cm", myString)
 	})
 }
 

@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
@@ -36,7 +39,7 @@ func TestReleasePackagesStep(t *testing.T) {
 		adoDesc, _ := json.Marshal(addonDescriptor)
 		config.AddonDescriptor = string(adoDesc)
 		//act
-		err := runAbapAddonAssemblyKitReleasePackages(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitReleasePackages(&config, &utils, &cpe)
 		//assert
 		assert.NoError(t, err, "Did not expect error")
 		var addonDescriptorFinal abaputils.AddonDescriptor
@@ -57,7 +60,7 @@ func TestReleasePackagesStep(t *testing.T) {
 		adoDesc, _ := json.Marshal(addonDescriptor)
 		config.AddonDescriptor = string(adoDesc)
 		//act
-		err := runAbapAddonAssemblyKitReleasePackages(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitReleasePackages(&config, &utils, &cpe)
 		//assert
 		assert.Error(t, err, "Did expect error")
 		assert.Equal(t, err.Error(), "Parameter missing. Please provide the name of the package which should be released")
@@ -78,7 +81,7 @@ func TestReleasePackagesStep(t *testing.T) {
 		adoDesc, _ := json.Marshal(addonDescriptor)
 		config.AddonDescriptor = string(adoDesc)
 		//act
-		err := runAbapAddonAssemblyKitReleasePackages(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitReleasePackages(&config, &utils, &cpe)
 		//assert
 		assert.Error(t, err, "Did expect error")
 		assert.Equal(t, err.Error(), "Release of all packages failed/timed out - Aborting as abapEnvironmentAssembleConfirm step is not needed: Timed out")
@@ -113,7 +116,7 @@ func TestReleasePackagesStepMix(t *testing.T) {
 		adoDesc, _ := json.Marshal(addonDescriptor)
 		config.AddonDescriptor = string(adoDesc)
 		//act
-		err := runAbapAddonAssemblyKitReleasePackages(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitReleasePackages(&config, &utils, &cpe)
 		//assert
 		assert.NoError(t, err, "Did not expect error")
 		var addonDescriptorFinal abaputils.AddonDescriptor

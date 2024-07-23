@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
@@ -19,7 +22,7 @@ func TestCheckCVsStep(t *testing.T) {
 	config.Password = "dummyPassword"
 	t.Run("step success", func(t *testing.T) {
 		config.AddonDescriptorFileName = "success"
-		err := runAbapAddonAssemblyKitCheckCVs(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckCVs(&config, &utils, &cpe)
 		assert.NoError(t, err, "Did not expect error")
 		var addonDescriptorFinal abaputils.AddonDescriptor
 		err = json.Unmarshal([]byte(cpe.abap.addonDescriptor), &addonDescriptorFinal)
@@ -31,13 +34,13 @@ func TestCheckCVsStep(t *testing.T) {
 	})
 	t.Run("step error - in validate(no CommitID)", func(t *testing.T) {
 		config.AddonDescriptorFileName = "noCommitID"
-		err := runAbapAddonAssemblyKitCheckCVs(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckCVs(&config, &utils, &cpe)
 		assert.Error(t, err, "Must end with error")
 		assert.Contains(t, err.Error(), "CommitID missing in repo")
 	})
 	t.Run("step error - in ReadAddonDescriptor", func(t *testing.T) {
 		config.AddonDescriptorFileName = "failing"
-		err := runAbapAddonAssemblyKitCheckCVs(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckCVs(&config, &utils, &cpe)
 		assert.Error(t, err, "Must end with error")
 		assert.Contains(t, "error in ReadAddonDescriptor", err.Error())
 	})
@@ -45,7 +48,7 @@ func TestCheckCVsStep(t *testing.T) {
 		config.AddonDescriptorFileName = "success"
 		bundle.SetBody("ErrorBody")
 		bundle.SetError("error during validation")
-		err := runAbapAddonAssemblyKitCheckCVs(&config, nil, &utils, &cpe)
+		err := runAbapAddonAssemblyKitCheckCVs(&config, &utils, &cpe)
 		assert.Error(t, err, "Must end with error")
 	})
 }

@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package cmd
 
 import (
@@ -42,7 +45,7 @@ func TestCreateTargetVectorStep(t *testing.T) {
 
 	t.Run("step success test", func(t *testing.T) {
 		//act
-		err := runAbapAddonAssemblyKitCreateTargetVector(&config, nil, client, &cpe)
+		err := runAbapAddonAssemblyKitCreateTargetVector(&config, client, &cpe)
 		//assert
 		assert.NoError(t, err, "Did not expect error")
 
@@ -59,7 +62,7 @@ func TestCreateTargetVectorStep(t *testing.T) {
 			Error: errors.New("dummy"),
 		}
 		//act
-		err := runAbapAddonAssemblyKitCreateTargetVector(&config, nil, client, &cpe)
+		err := runAbapAddonAssemblyKitCreateTargetVector(&config, client, &cpe)
 		//assert
 		assert.Error(t, err, "Must end with error")
 	})
@@ -74,7 +77,7 @@ func TestCreateTargetVectorStep(t *testing.T) {
 		adoDesc, _ := json.Marshal(addonDescriptor)
 		config.AddonDescriptor = string(adoDesc)
 		//act
-		err := runAbapAddonAssemblyKitCreateTargetVector(&config, nil, client, &cpe)
+		err := runAbapAddonAssemblyKitCreateTargetVector(&config, client, &cpe)
 		//assert
 		assert.Error(t, err, "Must end with error")
 	})
@@ -101,7 +104,7 @@ func TestCreateTargetVectorStep(t *testing.T) {
 		adoDesc, _ := json.Marshal(addonDescriptor)
 		config.AddonDescriptor = string(adoDesc)
 		//act
-		err := runAbapAddonAssemblyKitCreateTargetVector(&config, nil, client, &cpe)
+		err := runAbapAddonAssemblyKitCreateTargetVector(&config, client, &cpe)
 		//assert
 		assert.Error(t, err, "Must end with error")
 	})

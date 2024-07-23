@@ -1,10 +1,12 @@
+//go:build unit
+// +build unit
+
 package blackduck
 
 import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -24,7 +26,7 @@ func (c *httpMockClient) SendRequest(method, url string, body io.Reader, header 
 	c.header[url] = header
 	response := http.Response{
 		StatusCode: 200,
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte(""))),
+		Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 	}
 
 	if c.errorMessageForURL[url] != "" {
@@ -33,7 +35,7 @@ func (c *httpMockClient) SendRequest(method, url string, body io.Reader, header 
 	}
 
 	if c.responseBodyForURL[url] != "" {
-		response.Body = ioutil.NopCloser(bytes.NewReader([]byte(c.responseBodyForURL[url])))
+		response.Body = io.NopCloser(bytes.NewReader([]byte(c.responseBodyForURL[url])))
 		return &response, nil
 	}
 
