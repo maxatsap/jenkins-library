@@ -13,9 +13,11 @@ const (
 	vaultBadge       = "![Vault](https://img.shields.io/badge/-Vault-lightgrey)"
 	jenkinsOnlyBadge = "![Jenkins only](https://img.shields.io/badge/-Jenkins%20only-yellowgreen)"
 	secretBadge      = "![Secret](https://img.shields.io/badge/-Secret-yellowgreen)"
-	trustengineBadge = "![Trust Engine](https://img.shields.io/badge/-Trust%20Engine-lightblue)"
+	systemTrustBadge = "![System Trust](https://img.shields.io/badge/-System%20Trust-lightblue)"
 	deprecatedBadge  = "![deprecated](https://img.shields.io/badge/-deprecated-red)"
 )
+
+var jenkinsParams = []string{"containerCommand", "containerName", "containerShell", "dockerVolumeBind", "dockerWorkspace", "sidecarReadyCommand", "sidecarWorkspace", "stashContent"}
 
 // Replaces the Parameters placeholder with the content from the yaml
 func createParametersSection(stepData *config.StepData) string {
@@ -97,7 +99,6 @@ func parameterFurtherInfo(paramName string, stepData *config.StepData, execution
 	}
 
 	// handle non-step parameters (e.g. Jenkins-specific parameters as well as execution environment parameters)
-	jenkinsParams := []string{"containerCommand", "containerName", "containerShell", "dockerVolumeBind", "dockerWorkspace", "sidecarReadyCommand", "sidecarWorkspace", "stashContent"}
 	if !contains(stepParameterNames, paramName) {
 		for _, secret := range stepData.Spec.Inputs.Secrets {
 			if paramName == secret.Name && secret.Type == "jenkins" {
@@ -121,9 +122,9 @@ func parameterFurtherInfo(paramName string, stepData *config.StepData, execution
 				secretInfo := fmt.Sprintf("%s pass via ENV or Jenkins credentials", secretBadge)
 
 				isVaultSecret := param.GetReference("vaultSecret") != nil || param.GetReference("vaultSecretFile") != nil
-				isTrustengineSecret := param.GetReference(config.RefTypeTrustengineSecret) != nil
-				if isVaultSecret && isTrustengineSecret {
-					secretInfo = fmt.Sprintf(" %s %s %s pass via ENV, Vault, Trust Engine or Jenkins credentials", vaultBadge, trustengineBadge, secretBadge)
+				isSystemTrustSecret := param.GetReference(config.RefTypeSystemTrustSecret) != nil
+				if isVaultSecret && isSystemTrustSecret {
+					secretInfo = fmt.Sprintf(" %s %s %s pass via ENV, Vault, System Trust or Jenkins credentials", vaultBadge, systemTrustBadge, secretBadge)
 				} else if isVaultSecret {
 					secretInfo = fmt.Sprintf(" %s %s pass via ENV, Vault or Jenkins credentials", vaultBadge, secretBadge)
 				}
@@ -161,7 +162,7 @@ func createParameterDetails(stepData *config.StepData) string {
 	for _, param := range stepData.Spec.Inputs.Parameters {
 		details += fmt.Sprintf("#### %v\n\n", param.Name)
 
-		if !contains(stepParameterNames, param.Name) {
+		if !contains(stepParameterNames, param.Name) && contains(jenkinsParams, param.Name) {
 			details += "**Jenkins-specific:** Used for proper environment setup.\n\n"
 		}
 
@@ -200,7 +201,7 @@ func createParameterDetails(stepData *config.StepData) string {
 	for _, secret := range stepData.Spec.Inputs.Secrets {
 		details += fmt.Sprintf("#### %v\n\n", secret.Name)
 
-		if !contains(stepParameterNames, secret.Name) {
+		if !contains(stepParameterNames, secret.Name) && contains(jenkinsParams, secret.Name) {
 			details += "**Jenkins-specific:** Used for proper environment setup. See *[using credentials](https://www.jenkins.io/doc/book/using/using-credentials/)* for details.\n\n"
 		}
 
@@ -346,8 +347,8 @@ func resourceReferenceDetails(resourceRef []config.ResourceReference) string {
 			resourceDetails = addVaultResourceDetails(resource, resourceDetails)
 			continue
 		}
-		if resource.Type == config.RefTypeTrustengineSecret {
-			resourceDetails = addTrustEngineResourceDetails(resource, resourceDetails)
+		if resource.Type == config.RefTypeSystemTrustSecret {
+			resourceDetails = addSystemTrustResourceDetails(resource, resourceDetails)
 		}
 	}
 
@@ -368,8 +369,8 @@ func addVaultResourceDetails(resource config.ResourceReference, resourceDetails 
 	return resourceDetails
 }
 
-func addTrustEngineResourceDetails(resource config.ResourceReference, resourceDetails string) string {
-	resourceDetails += "<br/>Trust Engine resource:<br />"
+func addSystemTrustResourceDetails(resource config.ResourceReference, resourceDetails string) string {
+	resourceDetails += "<br/>System Trust resource:<br />"
 	resourceDetails += fmt.Sprintf("&nbsp;&nbsp;name: `%v`<br />", resource.Name)
 	resourceDetails += fmt.Sprintf("&nbsp;&nbsp;value: `%v`<br />", resource.Default)
 
