@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	piperHttp "github.com/SAP/jenkins-library/pkg/http"
 	"github.com/SAP/jenkins-library/pkg/log"
-	"github.com/SAP/jenkins-library/pkg/piperutils"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -410,7 +410,7 @@ func sendRequestInternal(sys *SystemInstance, method, url string, body io.Reader
 	//header.Set("User-Agent", "Project-Piper.io cicd pipeline") // currently this causes some requests to fail due to unknown UA validation in the backend.
 
 	response, err := sys.client.SendRequest(method, url, requestBody, header, nil)
-	if err != nil && (response == nil || !piperutils.ContainsInt(acceptedErrorCodes, response.StatusCode)) {
+	if err != nil && (response == nil || !slices.Contains(acceptedErrorCodes, response.StatusCode)) {
 
 		var resBodyBytes []byte
 		if response != nil && response.Body != nil {
@@ -759,7 +759,7 @@ func (sys *SystemInstance) GetProjectsByName(projectName string) ([]Project, err
 	var err error
 
 	body := url.Values{}
-	body.Add("name", projectName)
+	body.Add("names", projectName)
 
 	data, err = sendRequest(sys, http.MethodGet, fmt.Sprintf("/projects/?%v", body.Encode()), nil, header, []int{404})
 
@@ -1376,6 +1376,17 @@ func (sys *SystemInstance) RequestNewReportV2(scanID, reportType string) (string
 		},
 		"filters": map[string][]string{
 			"scanners": {"sast"},
+			"severities": {
+				"high",
+				"medium",
+				"low",
+			},
+			"states": {
+				"to-verify",
+				"confirmed",
+				"urgent",
+				"proposed-not-exploitable",
+			},
 		},
 		"reportType": "ui",
 		"fileFormat": reportType,
