@@ -17,20 +17,20 @@ import (
 
 func TestGitHubActionsConfigProvider_GetBuildStatus(t *testing.T) {
 	tests := []struct {
-		name    string
-		runData run
-		want    string
+		name string
+		jobs []job
+		want string
 	}{
-		{"BuildStatusSuccess", run{fetched: true, Status: "success"}, BuildStatusSuccess},
-		{"BuildStatusAborted", run{fetched: true, Status: "cancelled"}, BuildStatusAborted},
-		{"BuildStatusInProgress", run{fetched: true, Status: "in_progress"}, BuildStatusInProgress},
-		{"BuildStatusFailure", run{fetched: true, Status: "qwertyu"}, BuildStatusFailure},
-		{"BuildStatusFailure", run{fetched: true, Status: ""}, BuildStatusFailure},
+		{"BuildStatusSuccess", []job{{Conclusion: "success"}, {Conclusion: "success"}, {Conclusion: "success"}}, BuildStatusSuccess},
+		{"BuildStatusAborted", []job{{Conclusion: "success"}, {Conclusion: "success"}, {Conclusion: "cancelled"}}, BuildStatusAborted},
+		{"BuildStatusFailure", []job{{Conclusion: "success"}, {Conclusion: "failure"}, {Conclusion: "cancelled"}}, BuildStatusFailure},
+		{"BuildStatusSuccess", []job{{Conclusion: "success"}, {Conclusion: "cancelled"}, {Conclusion: "failure"}}, BuildStatusAborted},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := &githubActionsConfigProvider{
-				runData: tt.runData,
+				jobsFetched: true,
+				jobs:        tt.jobs,
 			}
 			assert.Equalf(t, tt.want, g.BuildStatus(), "BuildStatus()")
 		})
@@ -113,7 +113,6 @@ func TestGitHubActionsConfigProvider_fetchRunData(t *testing.T) {
 	startedAt, _ := time.Parse(time.RFC3339, "2023-08-11T07:28:24Z")
 	wantRunData := run{
 		fetched:   true,
-		Status:    "completed",
 		StartedAt: startedAt,
 	}
 
@@ -146,17 +145,20 @@ func TestGitHubActionsConfigProvider_fetchRunData(t *testing.T) {
 func TestGitHubActionsConfigProvider_fetchJobs(t *testing.T) {
 	// data
 	respJson := map[string]interface{}{"jobs": []map[string]interface{}{{
-		"id":       111,
-		"name":     "Piper / Init",
-		"html_url": "https://github.com/SAP/jenkins-library/actions/runs/11111/jobs/111",
+		"id":        111,
+		"name":      "Piper / Init",
+		"html_url":  "https://github.com/SAP/jenkins-library/actions/runs/11111/jobs/111",
+		"runner_id": 12345,
 	}, {
-		"id":       222,
-		"name":     "Piper / Build",
-		"html_url": "https://github.com/SAP/jenkins-library/actions/runs/11111/jobs/222",
+		"id":        222,
+		"name":      "Piper / Build",
+		"html_url":  "https://github.com/SAP/jenkins-library/actions/runs/11111/jobs/222",
+		"runner_id": 12345,
 	}, {
-		"id":       333,
-		"name":     "Piper / Acceptance",
-		"html_url": "https://github.com/SAP/jenkins-library/actions/runs/11111/jobs/333",
+		"id":        333,
+		"name":      "Piper / Acceptance",
+		"html_url":  "https://github.com/SAP/jenkins-library/actions/runs/11111/jobs/333",
+		"runner_id": 12345,
 	},
 	}}
 	wantJobs := []job{{
@@ -285,7 +287,6 @@ func TestGitHubActionsConfigProvider_Others(t *testing.T) {
 	startedAt, _ := time.Parse(time.RFC3339, "2023-08-11T07:28:24Z")
 	p.runData = run{
 		fetched:   true,
-		Status:    "",
 		StartedAt: startedAt,
 	}
 
@@ -334,6 +335,64 @@ func TestWorkflowFileName(t *testing.T) {
 			_ = os.Setenv("GITHUB_WORKFLOW_REF", tt.workflowRef)
 			result := workflowFileName()
 			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+func Test_filterJobs(t *testing.T) {
+	tests := []struct {
+		name string
+		jobs []*github.WorkflowJob
+		want []*github.WorkflowJob
+	}{
+		{
+			name: "all jobs have runner id",
+			jobs: []*github.WorkflowJob{
+				{RunnerID: github.Ptr(int64(1))},
+				{RunnerID: github.Ptr(int64(2))},
+			},
+			want: []*github.WorkflowJob{
+				{RunnerID: github.Ptr(int64(1))},
+				{RunnerID: github.Ptr(int64(2))},
+			},
+		},
+		{
+			name: "no jobs have runner id",
+			jobs: []*github.WorkflowJob{
+				{RunnerID: nil},
+				{RunnerID: github.Ptr(int64(0))},
+			},
+			want: []*github.WorkflowJob{},
+		},
+		{
+			name: "some jobs have runner id",
+			jobs: []*github.WorkflowJob{
+				{RunnerID: github.Ptr(int64(1))},
+				{RunnerID: github.Ptr(int64(0))},
+				{RunnerID: github.Ptr(int64(3))},
+			},
+			want: []*github.WorkflowJob{
+				{RunnerID: github.Ptr(int64(1))},
+				{RunnerID: github.Ptr(int64(3))},
+			},
+		},
+		{
+			name: "empty input",
+			jobs: []*github.WorkflowJob{},
+			want: []*github.WorkflowJob{},
+		},
+		{
+			name: "nil input",
+			jobs: nil,
+			want: []*github.WorkflowJob{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterJobs(tt.jobs)
+			assert.Equal(t, len(tt.want), len(got))
+			for i := range tt.want {
+				assert.Equal(t, tt.want[i].GetRunnerID(), got[i].GetRunnerID())
+			}
 		})
 	}
 }
